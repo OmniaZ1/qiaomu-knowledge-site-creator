@@ -1,7 +1,14 @@
 ---
 name: knowledge-site-creator
-description: 一句话生成任何领域的知识学习网站。AI自动理解主题、创作内容、生成页面、部署上线。适用于任何需要系统学习的知识领域：进化心理学、大模型术语、化学元素、历史事件等。
-user_invocable: true
+description: "一句话生成任何领域的知识学习网站。AI自动理解主题、创作内容、生成页面、部署上线。适用于任何需要系统学习的知识领域：进化心理学、大模型术语、化学元素、历史事件等。触发词：生成一个XXX学习网站 / 创建XXX知识网站 / 做个XXX学习工坊。"
+version: 1.0.0
+author: Joe (向阳乔木)
+license: MIT
+platforms: [windows, macos, linux]
+metadata:
+  hermes:
+    tags: [web-development, education, content-generation, pwa, seo, vercel]
+    category: creative
 ---
 
 # Knowledge Site Creator - 通用知识学习网站生成器
@@ -339,9 +346,11 @@ AI参考设计系统，从零生成以下页面：
 ### Step 4: 创建项目结构
 
 ```bash
-# 项目位置
-mkdir -p "/Users/joe/Dropbox/code/${topic}-workshop"
-cd "/Users/joe/Dropbox/code/${topic}-workshop"
+# 项目位置（跨平台）
+BASE_DIR="${KNOWLEDGE_SITE_OUTPUT_DIR:-$HOME/hermes-generated-sites}"
+projectName="${topic}-workshop"
+mkdir -p "$BASE_DIR/$projectName"
+cd "$BASE_DIR/$projectName"
 
 # 创建目录结构
 mkdir -p js css
@@ -364,7 +373,7 @@ EOF
 # 写入其他页面...
 
 # 🆕 自动生成 PWA 图标（用 PIL）
-python3 << 'PYEOF'
+python << 'PYEOF'
 from PIL import Image, ImageDraw, ImageFont
 
 def create_icon(size, filename, text):
@@ -594,7 +603,7 @@ git commit -m "Initial commit: ${siteName}"
 
 # 1.3 列出所有现有 workshop 项目（用于后续验证）
 echo "📋 现有项目列表："
-ls -d /Users/joe/Dropbox/code/*-workshop 2>/dev/null | while read dir; do
+ls -d $BASE_DIR/*-workshop 2>/dev/null | while read dir; do
   PROJECT_NAME=$(basename "$dir")
   if [ -f "$dir/.vercel/project.json" ]; then
     PROJECT_ID=$(cat "$dir/.vercel/project.json" | jq -r '.projectId' 2>/dev/null || echo "unknown")
@@ -652,8 +661,8 @@ echo ""
 echo "🔍 检查其他项目是否受影响..."
 AFFECTED_PROJECTS=0
 
-for dir in /Users/joe/Dropbox/code/*-workshop; do
-  if [ "$dir" = "/Users/joe/Dropbox/code/${projectName}" ]; then
+for dir in $BASE_DIR/*-workshop; do
+  if [ "$dir" = "$BASE_DIR/${projectName}" ]; then
     continue  # 跳过当前项目
   fi
 
@@ -758,7 +767,7 @@ echo "  日志文件: /tmp/vercel-deploy-${projectName}.log"
 vercel ls
 
 # 2. 检查每个本地项目的部署状态
-cd /Users/joe/Dropbox/code
+cd $BASE_DIR
 for dir in *-workshop; do
   echo "=== $dir ==="
   cd "$dir"
@@ -895,7 +904,7 @@ cat .vercel/project.json
 
 ```bash
 # 立即进入旧项目目录
-cd /Users/joe/Dropbox/code/旧项目名称
+cd $BASE_DIR/旧项目名称
 
 # 重新部署旧项目
 vercel --prod --yes
@@ -946,7 +955,7 @@ word-root-workshop              → origin: https://github.com/joeseesun/word-ro
 **紧急修复步骤**：
 ```bash
 # 1. 恢复 word-root-workshop 到原始状态
-cd /Users/joe/Dropbox/code/word-root-workshop
+cd $BASE_DIR/word-root-workshop
 git log --oneline  # 找到原始提交
 git reset --hard 14cc7b0  # 恢复到原始词根词缀内容
 
@@ -960,7 +969,7 @@ vercel --prod --yes
 curl -sL https://word.qiaomu.ai/ | grep "词根词缀记忆工坊"
 
 # 5. 清理其他项目的 Git 远程仓库
-cd /Users/joe/Dropbox/code/evolutionary-psychology-workshop
+cd $BASE_DIR/evolutionary-psychology-workshop
 git remote remove origin
 ```
 
@@ -1018,7 +1027,7 @@ bash scripts/update-css.sh
 
 **脚本自动执行以下步骤**：
 
-1. **扫描项目**：自动扫描 `/Users/joe/Dropbox/code/*-workshop`
+1. **扫描项目**：自动扫描 `$BASE_DIR/*-workshop`
 2. **智能对比**：使用 `cmp` 命令对比 CSS 文件，跳过已是最新版本的项目
 3. **安全备份**：更新前自动备份旧 CSS 为 `.backup` 文件
 4. **Git 提交**：自动 commit CSS 变更（commit message: `chore: update CSS from skill template`）
@@ -1033,7 +1042,7 @@ bash scripts/update-css.sh
 在 skill 目录中修复或改进 `templates/minimal.css`：
 
 ```bash
-cd /Users/joe/.claude/skills/knowledge-site-creator
+cd "$SKILL_DIR"          # 即 knowledge-site-creator 所在的路径
 # 编辑 templates/minimal.css
 # 修复 bug 或改进样式
 ```

@@ -15,8 +15,8 @@
         "做个中医经络穴位学习工坊"
       ],
       "requirements": {
-        "tools": ["vercel", "python3", "PIL"],
-        "platforms": ["macos", "linux"]
+        "tools": ["vercel", "python", "PIL", "jq"],
+        "platforms": ["windows", "macos", "linux"]
       }
     }
   ]
