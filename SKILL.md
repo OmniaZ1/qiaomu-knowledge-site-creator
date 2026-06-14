@@ -67,10 +67,25 @@ AI自动执行：
 
 ## 实施流程（AI执行）
 
-🔴 **CHECKPOINT 0（入口）**：开始前确认：
-- Node.js / Python / Pillow / Vercel CLI / jq 可用（运行 `node --version && python -c "import PIL" && vercel whoami && jq --version`）
-- 输出目录 `$BASE_DIR` 已存在
-- 主题已从用户输入中提取
+🔴 **CHECKPOINT 0（入口）**：逐项验证（复制执行）：
+
+```bash
+# 1. 依赖检查
+node --version          # 期望 ≥18
+python -c "import PIL"  # 期望无报错（Pillow 可用）
+vercel whoami           # 期望返回用户名（已登录）
+jq --version            # 期望 ≥1.8
+
+# 2. 目录检查
+echo "${KNOWLEDGE_SITE_OUTPUT_DIR:-$HOME/hermes-generated-sites}"
+mkdir -p "${KNOWLEDGE_SITE_OUTPUT_DIR:-$HOME/hermes-generated-sites}"
+
+# 3. 主题提取
+echo "用户请求: <在此填入用户的原始请求>"
+echo "提取主题: <在此填入你分析出的主题名>"
+```
+
+🛑 上述 3 项任一失败 → **停止**，修复依赖后再继续。
 
 ### 流程总览
 
@@ -107,9 +122,15 @@ AI深入分析主题，输出主题分析：
 
 ---
 
-🔴 **CHECKPOINT 1**：在继续之前确认：
-- 主题领域/特点/价值/受众/表达方式是否已充分分析？
-- 如果没有清晰理解主题，Step 2 生成的数据会跑偏。返回 Step 1 完善分析。
+🔴 **CHECKPOINT 1**：回答以下 5 个问题（缺一不可进入 Step 2）：
+
+1. 主题英文/拼音 slug：______（用于目录名，如 `evolutionary-psychology`）
+2. `itemName`：______（单个知识点的称呼，如"概念"/"命令"/"术语"/"穴位"）
+3. 目标受众：______（如"编程初学者"/"心理学爱好者"）
+4. 语言风格：______（如"科学严谨+生活案例"/"极简技术文档风"）
+5. 估算知识点数：______个（默认 20，复杂主题 30-50）
+
+🛑 5 题未全部回答 → **回到 Step 1** 重新分析。
 
 ---
 
@@ -634,11 +655,29 @@ echo "✅ 所有验证通过！"
 
 ### Step 6: 部署（强制安全检查）
 
-🔴 **CHECKPOINT 2（部署前 — 最关键）**：在部署之前确认：
-- 数据验证通过了吗？（Step 5 必须 ✅）
-- 项目目录正确吗？（BASE_DIR 已设置）
-- Vercel 已登录吗？（`vercel whoami` 确认）
-- 如果任何一项不满足，**不要部署**。退回修正。
+🔴 **CHECKPOINT 2（部署前 — 最关键）**：逐项验证（每一项不通过则 🛑 停止部署）：
+
+```bash
+# 1. 数据验证通过
+node -e "var c=require('fs').readFileSync('js/wordData.js','utf-8').replace(/const WordRoots/,'var WordRoots');eval(c);console.log(WordRoots.length+' items OK')"
+# 期望: "N items OK"（N>0）
+
+# 2. 配置文件完整
+node -e "var c=require('fs').readFileSync('js/siteConfig.js','utf-8').replace(/const siteConfig/,'var siteConfig');eval(c);console.log(siteConfig.topic,siteConfig.itemCount+' items')"
+# 期望: "主题名 N items"
+
+# 3. Vercel 已认证
+vercel whoami
+# 期望: 返回用户名（非 "No credentials"）
+
+# 4. 输出目录正确
+echo "BASE_DIR=$BASE_DIR"
+echo "projectName=$projectName"
+ls "$BASE_DIR/$projectName/index.html"
+# 期望: 显示 index.html 路径
+```
+
+🛑 以上 4 项**任意一项失败 → 停止部署**，回到对应步骤修正。
 
 ---
 
@@ -949,6 +988,13 @@ AI 执行此 skill 时，**必须严格按顺序**完成：
 | 8 | DOM 操作前不检查元素存在 | 使用 `if (element)` 或 `?.` 可选链 |
 | 9 | 跳过 Step 5 数据验证 | 数据不完整会导致页面渲染空白/崩溃 |
 | 10 | 部署后不验证 URL 可访问 | 用 `curl` 检查 HTTP 200 + projectId 唯一性 |
+| 11 | 忽略 🔴 CHECKPOINT 标记继续执行 | 每个 CHECKPOINT 的验证命令复制执行，🛑 出现立即停 |
+| 12 | 失败表中写了修复方案但 AI 自己"脑补"别的 | 严格复制失败表中的一线修复命令，不自己发明方案 |
+| 13 | 部署前忘记 `vercel whoami` 确认登录 | CHECKPOINT 2 第 3 步强制执行 |
+| 14 | 没设 `HTTP_PROXY` 导致 Vercel `curl` 000 | 开始前在 CHECKPOINT 0 一起设置代理环境变量 |
+| 15 | 生成 HTML 不使用 `templates/minimal.css` 的 class | 对照数据模板速查中的 31 个 CSS class 清单逐一检查 |
+| 16 | 知识点数量 <10 或 >100 导致内容过少/加载慢 | 默认 20-30 个，简单主题 10-15 个，大主题上限 50 个 |
+| 17 | Windows Git Bash 中文主机名导致 Vercel CLI 报错 | 不直接用 `vercel login`，改用 `export VERCEL_TOKEN` 环境变量 |
 
 ---
 
