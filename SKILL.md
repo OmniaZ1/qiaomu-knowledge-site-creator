@@ -447,9 +447,12 @@ echo "🔍 验证数据完整性..."
 # 2.1 使用 Node.js 进行深度验证
 node -e "
 const fs = require('fs');
+const vm = require('vm');
 
-// 读取数据文件
-const dataContent = fs.readFileSync('js/wordData.js', 'utf-8');
+// 读取数据文件并执行（使用 vm 模块解决 eval 中 const 作用域问题）
+let dataContent = fs.readFileSync('js/wordData.js', 'utf-8');
+// 浏览器环境用 eval 直接可用；Node.js 中 const 在 eval 有作用域隔离，需替换为 var
+dataContent = dataContent.replace(/const\s+WordRoots\s*=/, 'var WordRoots =');
 eval(dataContent);  // 加载 WordRoots
 
 let errors = [];
@@ -546,7 +549,8 @@ echo "🔍 验证配置..."
 
 node -e "
 const fs = require('fs');
-const configContent = fs.readFileSync('js/siteConfig.js', 'utf-8');
+let configContent = fs.readFileSync('js/siteConfig.js', 'utf-8');
+configContent = configContent.replace(/const\s+siteConfig\s*=/, 'var siteConfig =');
 eval(configContent);
 
 if (typeof siteConfig === 'undefined') {
