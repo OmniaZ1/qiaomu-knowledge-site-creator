@@ -72,6 +72,17 @@ AI自动执行：
 - 输出目录 `$BASE_DIR` 已存在
 - 主题已从用户输入中提取
 
+### 流程总览
+
+| Step | 名称 | 输入 | 输出 | 估算 |
+|------|------|------|------|------|
+| 1 | 理解主题 | 用户一句话 | 主题分析对象（领域/特点/价值/受众/表达）| ~2min |
+| 2 | 生成数据+配置 | 主题分析 | `js/wordData.js` + `js/siteConfig.js` | ~5min |
+| 3 | 参考设计生成页面 | references/*.md | 6 HTML + 1 CSS + 1 JS + PWA + SEO 文件 | ~10min |
+| 4 | 创建项目结构 | 所有文件内容 | 磁盘上的完整项目目录 | ~2min |
+| 5 | 数据验证 | 项目目录 | Node.js 验证报告 | ~1min |
+| 6 | 部署到 Vercel | 验证通过的项目 | 生产 URL | ~2min |
+
 ---
 
 ### Step 1: 理解主题
@@ -353,6 +364,32 @@ AI参考设计系统，从零生成以下页面：
 - ✅ **语义化 HTML**：正确使用 header, main, article, section 等标签 🆕
 - ✅ **移动端优先**：响应式设计 + viewport meta + 快速加载（< 3秒）🆕
 - ❌ 不要硬编码特定领域的内容
+
+### 📋 数据模板速查
+
+**wordData.js 硬性约束**：
+| 字段 | 类型 | 最小长度 | 最大长度 |
+|------|------|---------|---------|
+| root | string | 2 字 | 30 字 |
+| meaning | string | 5 字 | 50 字 |
+| description | string | 150 字 | 500 字 |
+| examples | array | 3 个 | 5 个 |
+| quiz.options | array | 恰好 4 个 | — |
+| quiz.correctAnswer | number | 0 | 3 |
+
+**siteConfig.js 硬性约束**：
+| 字段 | 要求 |
+|------|------|
+| hero.title | 恰好 3 个字符串，每个 ≤12 字 |
+| hero.subtitle | 15-40 字 |
+| stats | 恰好 3 个对象 {value, label} |
+| footer.tagline | ≤20 字 |
+| footer.description | 80-200 字 |
+| cta.primary | ≤15 字 |
+| cta.secondary | ≤10 字 |
+
+**HTML 必须使用的 CSS class**（来自 `templates/minimal.css`）：
+`nav` `nav-container` `nav-brand` `nav-link` `hero` `hero-title` `hero-subtitle` `container` `stat-grid` `stat-card` `stat-value` `stat-label` `card` `btn` `btn-primary` `btn-large` `flashcard` `flashcard-inner` `flashcard-front` `flashcard-back` `quiz-option` `feedback-toast` `roots-grid` `root-card` `root-name` `root-meaning` `root-origin` `mastered-badge` `learn-container` `learn-nav` `progress-bar-bg` `progress-bar-fill` `search-bar` `filter-bar` `footer` `footer-tagline`
 
 ---
 
