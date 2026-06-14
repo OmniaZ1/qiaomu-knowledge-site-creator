@@ -67,6 +67,13 @@ AI自动执行：
 
 ## 实施流程（AI执行）
 
+🔴 **CHECKPOINT 0（入口）**：开始前确认：
+- Node.js / Python / Pillow / Vercel CLI / jq 可用（运行 `node --version && python -c "import PIL" && vercel whoami && jq --version`）
+- 输出目录 `$BASE_DIR` 已存在
+- 主题已从用户输入中提取
+
+---
+
 ### Step 1: 理解主题
 
 AI深入分析主题，输出主题分析：
@@ -86,6 +93,12 @@ AI深入分析主题，输出主题分析：
 - 为什么重要？（学习价值、应用场景）
 - 目标受众是谁？（背景、需求、痛点）
 - 如何表达更好？（语言风格、案例选择）
+
+---
+
+🔴 **CHECKPOINT 1**：在继续之前确认：
+- 主题领域/特点/价值/受众/表达方式是否已充分分析？
+- 如果没有清晰理解主题，Step 2 生成的数据会跑偏。返回 Step 1 完善分析。
 
 ---
 
@@ -584,6 +597,14 @@ echo "✅ 所有验证通过！"
 
 ### Step 6: 部署（强制安全检查）
 
+🔴 **CHECKPOINT 2（部署前 — 最关键）**：在部署之前确认：
+- 数据验证通过了吗？（Step 5 必须 ✅）
+- 项目目录正确吗？（BASE_DIR 已设置）
+- Vercel 已登录吗？（`vercel whoami` 确认）
+- 如果任何一项不满足，**不要部署**。退回修正。
+
+---
+
 ⚠️ **关键**：每个项目必须独立部署，绝不共享 GitHub 仓库
 
 **部署流程（必须严格按顺序执行）**：
@@ -790,6 +811,22 @@ vercel --prod --yes
 
 ---
 
+## 失败模式与修复方案
+
+| 触发条件 | 一线修复 | 仍失败则 |
+|---------|---------|---------|
+| `vercel whoami` 报 "No credentials" | `vercel login` 或设置 `VERCEL_TOKEN` 环境变量 | 跳过部署，告知用户手动部署 |
+| `python` 找不到 PIL | `pip install pillow` | 使用纯 SVG favicon 替代 PIL 图标生成 |
+| `jq` 未安装 | `winget install jqlang.jq` (Win) / `brew install jq` (Mac) / `apt install jq` (Linux) | 用 `python -c "import json..."` 替代 jq |
+| Node.js 数据验证 eval 失败 | 将 `const WordRoots` 替换为 `var WordRoots` 再 eval | 用 `fs.readFileSync` + 正则手动提取关键字段 |
+| Vercel 部署后 projectId 冲突 | 立即进入旧项目目录，`vercel --prod --yes` 重新部署 | 手动 `vercel ls` 检查项目列表，逐个修复 |
+| 生成的 wordData.js 字符编码错误 | 确保 `write_file` 使用 UTF-8 编码 | 用 `node -e "fs.readFileSync('js/wordData.js','utf-8')"` 验证 |
+| Service Worker 缓存旧版本 | 更新 `CACHE_VERSION` 版本号 | 手动清除浏览器缓存 |
+| macOS/Linux 字体路径不存在 | `ImageFont.load_default()` 兜底 | 使用 emoji 生成 SVG favicon 替代 PNG |
+| Vercel 部署超时 (>2min) | 检查网络连接和 `HTTP_PROXY` | `vercel --prod --yes` 重试，最多 3 次 |
+
+---
+
 ## 成功输出模板
 
 ```markdown
@@ -854,6 +891,25 @@ AI 执行此 skill 时，**必须严格按顺序**完成：
 旧版：硬编码文案
 新版：AI创作内容
 ```
+
+---
+
+## 反例与常见错误
+
+⚠️ 以下是在使用本 skill 时**必须避免**的错误：
+
+| # | ❌ 反模式 | ✅ 正确做法 |
+|---|----------|-----------|
+| 1 | `cp -r` 复制旧项目当模板 | AI 从零生成，参考设计系统不复用代码 |
+| 2 | 使用 `sed` 粗暴替换文案 | AI 理解主题后创作原创文案 |
+| 3 | 硬编码特定领域内容（如"词根词缀"） | 所有文案从 `siteConfig` 和 `WordRoots` 动态读取 |
+| 4 | innerHTML 直接插入未转义数据 | 优先 `textContent` / `createElement`，必要时 `escapeHtml()` |
+| 5 | 忽略数据验证直接部署 | Step 5 强制验证后才能进 Step 6 |
+| 6 | 多个项目共享同一 GitHub 仓库 | 部署前移除 `git remote`，独立 `vercel --prod --yes` |
+| 7 | LocalStorage 操作无 try-catch | 所有 `getItem`/`setItem` 包裹错误处理 + 默认值 |
+| 8 | DOM 操作前不检查元素存在 | 使用 `if (element)` 或 `?.` 可选链 |
+| 9 | 跳过 Step 5 数据验证 | 数据不完整会导致页面渲染空白/崩溃 |
+| 10 | 部署后不验证 URL 可访问 | 用 `curl` 检查 HTTP 200 + projectId 唯一性 |
 
 ---
 
