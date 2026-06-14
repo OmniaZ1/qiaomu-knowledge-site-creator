@@ -1,6 +1,6 @@
 ---
 name: knowledge-site-creator
-description: "一句话生成任何领域的知识学习网站。AI自动理解主题、创作内容、生成页面、部署上线。适用于任何需要系统学习的知识领域：进化心理学、大模型术语、化学元素、历史事件等。触发词：生成一个XXX学习网站 / 创建XXX知识网站 / 做个XXX学习工坊。"
+description: "一句话生成任意主题的知识学习网站（HTML/CSS/JS/PWA/SEO）。AI自动完成：主题分析→知识数据生成→页面编码→Vercel部署→返回链接。支持学科知识/技术术语/历史文化/科学概念/设计美学等领域。触发词：生成/创建/做一个XXX学习网站/知识网站/学习工坊/概念网站/术语速查。"
 version: 1.0.0
 author: Joe (向阳乔木)
 license: MIT
@@ -850,17 +850,19 @@ vercel --prod --yes
 
 ## 失败模式与修复方案
 
-| 触发条件 | 一线修复 | 仍失败则 |
+| 触发条件 | 一线修复（复制执行） | 仍失败则（复制执行） |
 |---------|---------|---------|
-| `vercel whoami` 报 "No credentials" | `vercel login` 或设置 `VERCEL_TOKEN` 环境变量 | 跳过部署，告知用户手动部署 |
-| `python` 找不到 PIL | `pip install pillow` | 使用纯 SVG favicon 替代 PIL 图标生成 |
-| `jq` 未安装 | `winget install jqlang.jq` (Win) / `brew install jq` (Mac) / `apt install jq` (Linux) | 用 `python -c "import json..."` 替代 jq |
-| Node.js 数据验证 eval 失败 | 将 `const WordRoots` 替换为 `var WordRoots` 再 eval | 用 `fs.readFileSync` + 正则手动提取关键字段 |
-| Vercel 部署后 projectId 冲突 | 立即进入旧项目目录，`vercel --prod --yes` 重新部署 | 手动 `vercel ls` 检查项目列表，逐个修复 |
-| 生成的 wordData.js 字符编码错误 | 确保 `write_file` 使用 UTF-8 编码 | 用 `node -e "fs.readFileSync('js/wordData.js','utf-8')"` 验证 |
-| Service Worker 缓存旧版本 | 更新 `CACHE_VERSION` 版本号 | 手动清除浏览器缓存 |
-| macOS/Linux 字体路径不存在 | `ImageFont.load_default()` 兜底 | 使用 emoji 生成 SVG favicon 替代 PNG |
-| Vercel 部署超时 (>2min) | 检查网络连接和 `HTTP_PROXY` | `vercel --prod --yes` 重试，最多 3 次 |
+| `vercel whoami` 报 "No credentials" | `vercel login` | `export VERCEL_TOKEN="<token>"` 并重试部署 |
+| `python -c "import PIL"` 报 ModuleNotFoundError | `pip install pillow` | 用 SVG favicon 替代：`printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#FBBF24"/><text x="50" y="65" text-anchor="middle" font-size="40" fill="#1F2937">📚</text></svg>' > icon-192.png` 跳过 PIL |
+| `jq --version` 返回 command not found | Win: `winget install jqlang.jq`; Mac: `brew install jq`; Linux: `sudo apt install jq -y` | 用 `python -c "import json;print(json.load(open('.vercel/project.json'))['projectId'])"` 替代 jq 操作 |
+| `node -e "eval(fs.readFileSync('js/wordData.js','utf-8'))"` 报 ReferenceError | 改用 `const`→`var` 替换：`node -e "var fs=require('fs');var c=fs.readFileSync('js/wordData.js','utf-8').replace(/const WordRoots/,'var WordRoots');eval(c);console.log(WordRoots.length)"` | `node -e "console.log(JSON.stringify(require('fs').readFileSync('js/wordData.js','utf-8').match(/id:\s*(\d+)/g)))"` 正则提取 id 列表 |
+| `.vercel/project.json` 的 projectId 和其他项目冲突 | `cd $BASE_DIR/旧项目 && vercel --prod --yes` | `vercel ls \| grep -v "projectId"` 列出全部项目，逐个重部署 |
+| `git commit` 报 "Author identity unknown" | `git config user.name "temp"; git config user.email "temp@local"` | `GIT_AUTHOR_NAME="temp" GIT_AUTHOR_EMAIL="temp@local" GIT_COMMITTER_NAME="temp" GIT_COMMITTER_EMAIL="temp@local" git commit -m "..."` |
+| 浏览器 SW 缓存旧版本 | 递增 `sw.js` 顶部 `CACHE_VERSION` 从 `'v1'` 到 `'v2'` | 手动清除：Chrome DevTools → Application → Clear storage → Clear site data |
+| Pillow 字体 `truetype()` 报 OSError | Python 中 catch 后 `font = ImageFont.load_default()` | `printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#FBBF24"/><text x="256" y="320" text-anchor="middle" font-size="120" fill="#1F2937">$TEXT</text></svg>' > icon-512.png` |
+| Vercel 部署超时 (>2min) | `export HTTP_PROXY=http://127.0.0.1:15556 HTTPS_PROXY=http://127.0.0.1:15556` | `vercel --prod --yes` 重试，最多 3 次；仍失败用 `vercel deploy --prebuilt --prod` |
+| `mkdir "$BASE_DIR/$projectName"` 报 Permission denied | `mkdir -p "$HOME/hermes-generated-sites/$projectName"` 回退到默认路径 | 检查磁盘空间：`df -h "$HOME"` |
+| `curl -s "$URL"` 返回 000 | 代理未设置：`export HTTP_PROXY=http://127.0.0.1:15556 HTTPS_PROXY=http://127.0.0.1:15556` | `curl --noproxy '*' -s "$URL"` 跳过代理直连 |
 
 ---
 
