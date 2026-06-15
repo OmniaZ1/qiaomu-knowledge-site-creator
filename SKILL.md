@@ -412,6 +412,33 @@ AI参考设计系统，从零生成以下页面：
 **HTML 必须使用的 CSS class**（来自 `templates/minimal.css`）：
 `nav` `nav-container` `nav-brand` `nav-link` `hero` `hero-title` `hero-subtitle` `container` `stat-grid` `stat-card` `stat-value` `stat-label` `card` `btn` `btn-primary` `btn-large` `flashcard` `flashcard-inner` `flashcard-front` `flashcard-back` `quiz-option` `feedback-toast` `roots-grid` `root-card` `root-name` `root-meaning` `root-origin` `mastered-badge` `learn-container` `learn-nav` `progress-bar-bg` `progress-bar-fill` `search-bar` `filter-bar` `footer` `footer-tagline`
 
+### 🛑 HTML 内容一致性强制检查
+
+**禁止复制旧 HTML 文件作为新站点页面**。如果为了加速使用旧 HTML 作为参考，必须在写入后立即跑下面的 stale-topic 检查，确保没有旧主题残留：
+
+```bash
+# 将这些旧主题替换成你历史上生成过的站点关键词
+STALE_TOPICS="Git 命令|Python 装饰器|摄影构图|咖啡品鉴|词根词缀"
+if grep -R -E "$STALE_TOPICS" *.html manifest.json js/siteConfig.js; then
+  echo "❌ HTML/manifest 中存在旧主题残留，必须重新生成页面，不能部署"
+  exit 1
+fi
+
+# 当前主题必须出现在全部 HTML 页面中
+for page in index.html learn.html flashcard.html roots.html progress.html root-detail.html; do
+  grep -q "$siteConfig.topic" "$page" || {
+    echo "❌ $page 缺少当前主题关键词：$siteConfig.topic"
+    exit 1
+  }
+done
+```
+
+**验收标准**：HTTP 200 只代表站点能打开，不代表内容正确。必须同时通过：
+1. `WordRoots.length === siteConfig.itemCount`
+2. HTML 不含旧主题关键词
+3. 每个 HTML 都含当前主题关键词
+4. manifest.json 的 `name/description` 与当前主题一致
+
 ---
 
 ### Step 4: 创建项目结构
@@ -995,6 +1022,7 @@ AI 执行此 skill 时，**必须严格按顺序**完成：
 | 15 | 生成 HTML 不使用 `templates/minimal.css` 的 class | 对照数据模板速查中的 31 个 CSS class 清单逐一检查 |
 | 16 | 知识点数量 <10 或 >100 导致内容过少/加载慢 | 默认 20-30 个，简单主题 10-15 个，大主题上限 50 个 |
 | 17 | Windows Git Bash 中文主机名导致 Vercel CLI 报错 | 不直接用 `vercel login`，改用 `export VERCEL_TOKEN` 环境变量 |
+| 18 | 只验证 HTTP 200，不检查页面内容是否是当前主题 | 增加 stale-topic 检查：旧主题关键词不得出现在 HTML/manifest/siteConfig 中 |
 
 ---
 
