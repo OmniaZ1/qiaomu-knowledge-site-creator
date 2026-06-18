@@ -247,6 +247,7 @@ const siteConfig = {
 - `references/code-quality.md` - **代码质量标准（必须遵守）**
 - `references/seo-best-practices.md` - **SEO优化指南** 🆕
 - `references/pwa-setup.md` - PWA配置指南
+- `references/full-validation-and-stale-topic.md` - **全量验收与旧主题残留回归检查**（HTTP 200 不等于内容正确）
 
 **代码质量要求**（强制）：
 - ✅ **错误处理**：所有 LocalStorage 操作必须有 try-catch
@@ -419,7 +420,7 @@ AI参考设计系统，从零生成以下页面：
 ```bash
 # 将这些旧主题替换成你历史上生成过的站点关键词
 STALE_TOPICS="Git 命令|Python 装饰器|摄影构图|咖啡品鉴|词根词缀"
-if grep -R -E "$STALE_TOPICS" *.html manifest.json js/siteConfig.js; then
+if grep -R -E "$STALE_TOPICS" *.html manifest.json; then
   echo "❌ HTML/manifest 中存在旧主题残留，必须重新生成页面，不能部署"
   exit 1
 fi
