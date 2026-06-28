@@ -140,6 +140,8 @@ AI深入分析主题，输出主题分析：
 
 #### 2.1 生成数据（wordData.js）
 
+⚠️ **写入方式**：不要用 bash heredoc (`cat > file << 'EOF'`) 写含中文的 JS 数据——heredoc 会静默损坏输出（丢失冒号、替换直引号为弯引号）。用 `write_file` 工具或 Python `open().write()`。详见 `references/heredoc-encoding-pitfalls.md`。
+
 **通用数据结构**：
 ```javascript
 const WordRoots = [
@@ -223,9 +225,26 @@ const siteConfig = {
 
 ---
 
-### Step 3: 参考设计系统，生成页面
+### Step 3: 生成页面
 
-⚠️ **不再复制模板！AI参考设计规范，生成新页面**
+⚠️ **使用 Python 生成器，不要手动 sed 替换或复制旧 HTML**
+
+**主方案（推荐）**：运行 `scripts/gen-html.py` 从 siteConfig.js 动态生成所有 HTML。每个页面的 meta description、OG title、页面标题全部来自配置数据，从源头消除语义残留。
+
+```bash
+# 生成 6 个 HTML + manifest.json（依赖：js/siteConfig.js 已存在）
+python "$SKILL_DIR/scripts/gen-html.py" .
+```
+
+生成后验证：
+```bash
+# 检查 SEO description 是否与 siteConfig 一致
+node -e "var c=require('fs').readFileSync('js/siteConfig.js','utf-8').replace(/const siteConfig/,'var siteConfig');eval(c);console.log('expected:',siteConfig.footer.description)"
+grep -o 'meta name="description"[^>]*' index.html | head -1
+# 两者的 content 值应完全一致
+```
+
+**备选方案**：AI 从零生成每个 HTML 页面（创造性更强，但需要更仔细地验证 meta 标签内容）。如果用此方案，必须在 Step 5 增加内容一致性验证。
 
 #### 3.1 设计系统参考
 
@@ -415,11 +434,14 @@ AI参考设计系统，从零生成以下页面：
 
 ### 🛑 HTML 内容一致性强制检查
 
-**禁止复制旧 HTML 文件作为新站点页面**。如果为了加速使用旧 HTML 作为参考，必须在写入后立即跑下面的 stale-topic 检查，确保没有旧主题残留：
+**主方案：使用 `scripts/gen-html.py` 从 siteConfig.js 动态生成所有 HTML**（见 Step 3）。此方案从源头消除语义残留，不需要后续 stale-topic 检查。
+
+**备选方案：如果用 sed 替换或手动编辑 HTML**，必须在写入后跑以下检查：
 
 ```bash
 # 将这些旧主题替换成你历史上生成过的站点关键词
-STALE_TOPICS="Git 命令|Python 装饰器|摄影构图|咖啡品鉴|词根词缀"
+# Maintain this list as new topics are generated — add each new topic after deploying
+STALE_TOPICS="Git 命令|Python 装饰器|摄影构图|咖啡品鉴|词根词缀|时间管理|谈判|潜意识|认知偏差|博弈论|思维模型|行为经济学"
 if grep -R -E "$STALE_TOPICS" *.html manifest.json; then
   echo "❌ HTML/manifest 中存在旧主题残留，必须重新生成页面，不能部署"
   exit 1
@@ -432,13 +454,22 @@ for page in index.html learn.html flashcard.html roots.html progress.html root-d
     exit 1
   }
 done
+
+# 语义级验证：逐字读 SEO description，确认与当前主题一致
+desc_in_html=$(grep -o 'meta name="description"[^>]*' index.html | head -1)
+echo "SEO description: $desc_in_html"
+# 人工确认：描述内容是否与当前主题匹配？不是→必须重写 HTML
 ```
 
-**验收标准**：HTTP 200 只代表站点能打开，不代表内容正确。必须同时通过：
-1. `WordRoots.length === siteConfig.itemCount`
-2. HTML 不含旧主题关键词
-3. 每个 HTML 都含当前主题关键词
-4. manifest.json 的 `name/description` 与当前主题一致
+**验收标准**：HTTP 200 只代表站点能打开，不代表内容正确。必须通过 5 层验证：
+
+| 层级 | 检查项 | 工具 |
+|------|--------|------|
+| 文件级 | 6 HTML + 3 JS + 2 icons + PWA + SEO 文件存在 | `ls` |
+| 语法级 | wordData / siteConfig / manifest 语法正确 | `node -c` / `python -m json.tool` |
+| 内容级 | topic 出现在所有 HTML，stale 关键词 = 0 | `grep` |
+| 语义级 | SEO description 内容与当前主题一致 | 人工逐字读 `meta name="description"` |
+| 运行时级 | Hermes skills list 显示 enabled | `hermes skills list` |
 
 ---
 
@@ -1023,7 +1054,10 @@ AI 执行此 skill 时，**必须严格按顺序**完成：
 | 15 | 生成 HTML 不使用 `templates/minimal.css` 的 class | 对照数据模板速查中的 31 个 CSS class 清单逐一检查 |
 | 16 | 知识点数量 <10 或 >100 导致内容过少/加载慢 | 默认 20-30 个，简单主题 10-15 个，大主题上限 50 个 |
 | 17 | Windows Git Bash 中文主机名导致 Vercel CLI 报错 | 不直接用 `vercel login`，改用 `export VERCEL_TOKEN` 环境变量 |
-| 18 | 只验证 HTTP 200，不检查页面内容是否是当前主题 | 增加 stale-topic 检查：旧主题关键词不得出现在 HTML/manifest/siteConfig 中 |
+| 18 | 只验证 HTTP 200，不检查页面内容是否是当前主题 | 增加 stale-topic 检查：旧主题关键词不得出现在 HTML/manifest 中（不含 siteConfig，见#20） |
+| 21 | sed 替换 HTML 主题词后不验证 SEO description 语义正确性 | sed 只能替换关键词，无法保证描述内容与新主题一致（如"任务收集、优先级判断"出现在谈判心理学站点）。必须逐字读 `meta name="description"` 内容，确认与 siteConfig.footer.description 一致 |
+| 19 | 用 bash heredoc (`cat > file << 'EOF'`) 写含中文的 JS 数据 | heredoc 中文 JS 会损坏：丢失冒号(`explanation":"`→`explanation":"`)、替换直引号为弯引号。用 `write_file` 工具或 Python `open().write()` 替代 |
+| 20 | stale-topic 检查范围包含 siteConfig.js | siteConfig 里天然包含主题词（如描述文案），只检查 `*.html` 和 `manifest.json` |
 
 ---
 
