@@ -45,6 +45,21 @@ metadata:
 - "创建量子力学基础概念网站"
 - "做个中医经络穴位学习工坊"
 
+## 成本与资源约束
+
+| 资源 | 免费层限制 | 说明 |
+|------|-----------|------|
+| Vercel 部署数 | 无硬限制 | 每个项目独立 projectId，免费层支持无限静态站点 |
+| Vercel 带宽 | 100GB/月 | 每个站点独立计费，学习类站点流量极低 |
+| Vercel 构建时长 | 6000 分钟/月 | 静态站点无需构建，不消耗构建配额 |
+| PWA 图标生成 | 无限制 | 本地 PIL 生成，不调用外部 API |
+| 知识点数量 | 10-50 个 | 默认 20-30，简单主题 10-15，复杂主题上限 50 |
+
+**注意事项**：
+- 每个主题独立部署为一个 Vercel 项目，不会互相覆盖
+- 已部署的站点可通过 `vercel ls` 查看，通过 `vercel rm <project>` 删除
+- CSS 更新需要重新部署所有站点（用 `scripts/update-css.sh`）
+
 ## 工作流程
 
 ### 用户视角（一句话）
@@ -441,7 +456,7 @@ AI参考设计系统，从零生成以下页面：
 ```bash
 # 将这些旧主题替换成你历史上生成过的站点关键词
 # Maintain this list as new topics are generated — add each new topic after deploying
-STALE_TOPICS="Git 命令|Python 装饰器|摄影构图|咖啡品鉴|词根词缀|时间管理|谈判|潜意识|认知偏差|博弈论|思维模型|行为经济学"
+STALE_TOPICS="Git 命令|Python 装饰器|摄影构图|咖啡品鉴|词根词缀|时间管理|谈判|潜意识|认知偏差|博弈论|思维模型|行为经济学|谈判心理学"
 if grep -R -E "$STALE_TOPICS" *.html manifest.json; then
   echo "❌ HTML/manifest 中存在旧主题残留，必须重新生成页面，不能部署"
   exit 1
@@ -706,6 +721,41 @@ if (!siteConfig.hero.title || !Array.isArray(siteConfig.hero.title) || siteConfi
 console.log('✓ 配置验证通过');
 " || exit 1
 
+# ========================================
+# 阶段 4：gen-html.py 输出验证（如果使用了 gen-html.py）
+# ========================================
+
+echo "🔍 验证 gen-html.py 生成的 HTML..."
+
+# 4.1 检查所有 HTML 文件存在
+for page in index.html learn.html flashcard.html roots.html progress.html root-detail.html; do
+  if [ ! -f "$page" ]; then
+    echo "❌ 错误：$page 不存在（gen-html.py 未生成）"
+    exit 1
+  fi
+done
+
+# 4.2 验证 SEO description 与 siteConfig 一致
+EXPECTED_DESC=$(node -e "var c=require('fs').readFileSync('js/siteConfig.js','utf-8').replace(/const siteConfig/,'var siteConfig');eval(c);console.log(siteConfig.footer.description)")
+ACTUAL_DESC=$(grep -o 'content="[^"]*"' index.html | head -2 | tail -1 | sed 's/content="//;s/"$//')
+if [ "$EXPECTED_DESC" != "$ACTUAL_DESC" ]; then
+  echo "❌ 错误：SEO description 与 siteConfig 不一致"
+  echo "  期望: $EXPECTED_DESC"
+  echo "  实际: $ACTUAL_DESC"
+  exit 1
+fi
+echo "✓ SEO description 与 siteConfig 一致"
+
+# 4.3 验证 topic 出现在所有 HTML 中
+TOPIC=$(node -e "var c=require('fs').readFileSync('js/siteConfig.js','utf-8').replace(/const siteConfig/,'var siteConfig');eval(c);console.log(siteConfig.topic)")
+for page in index.html learn.html flashcard.html roots.html progress.html root-detail.html; do
+  if ! grep -q "$TOPIC" "$page"; then
+    echo "❌ 错误：$page 缺少主题关键词：$TOPIC"
+    exit 1
+  fi
+done
+echo "✓ 主题关键词出现在所有 HTML 中"
+
 echo ""
 echo "✅ 所有验证通过！"
 ```
@@ -946,6 +996,38 @@ vercel --prod --yes
 
 ---
 
+## 部署回滚流程
+
+当部署后发现内容错误（如数据不完整、SEO 描述错误、主题残留）时：
+
+```bash
+# 1. 定位问题项目
+cd "$BASE_DIR/$projectName"
+
+# 2. 修复数据/配置
+# 修改 js/wordData.js 或 js/siteConfig.js
+
+# 3. 重新生成 HTML（使用 gen-html.py）
+python "$SKILL_DIR/scripts/gen-html.py" .
+
+# 4. 重新验证
+node -e "var c=require('fs').readFileSync('js/wordData.js','utf-8').replace(/const WordRoots/,'var WordRoots');eval(c);console.log(WordRoots.length+' items')"
+# stale-topic 检查
+grep -rE "旧主题词" *.html manifest.json 2>/dev/null || echo "clean"
+
+# 5. 重新部署
+rm -rf .git .vercel; git init; git config user.name o; git config user.email o@o
+echo .vercel>.gitignore; git add -A; git commit -qm "fix: re-deploy after content fix"
+vercel --prod --yes
+
+# 6. 验证修复
+curl -s "$URL" | grep -o 'meta name="description"[^>]*'
+```
+
+**注意**：Vercel 的 `--prod` 部署会自动替换生产 URL，旧版本会被保留在预览 URL。不需要手动删除旧版本。
+
+---
+
 ## 失败模式与修复方案
 
 | 触发条件 | 一线修复（复制执行） | 仍失败则（复制执行） |
@@ -961,6 +1043,7 @@ vercel --prod --yes
 | Vercel 部署超时 (>2min) | `export HTTP_PROXY=http://127.0.0.1:15556 HTTPS_PROXY=http://127.0.0.1:15556` | `vercel --prod --yes` 重试，最多 3 次；仍失败用 `vercel deploy --prebuilt --prod` |
 | `mkdir "$BASE_DIR/$projectName"` 报 Permission denied | `mkdir -p "$HOME/hermes-generated-sites/$projectName"` 回退到默认路径 | 检查磁盘空间：`df -h "$HOME"` |
 | `curl -s "$URL"` 返回 000 | 代理未设置：`export HTTP_PROXY=http://127.0.0.1:15556 HTTPS_PROXY=http://127.0.0.1:15556` | `curl --noproxy '*' -s "$URL"` 跳过代理直连 |
+| bash heredoc 写 wordData.js 后 Node.js 报 `SyntaxError: Unexpected string` | MSYS 编码问题，用 `write_file` 工具替代 bash heredoc 重写文件 | 详见 `references/heredoc-encoding-pitfalls.md` |
 
 ---
 
@@ -1054,10 +1137,11 @@ AI 执行此 skill 时，**必须严格按顺序**完成：
 | 15 | 生成 HTML 不使用 `templates/minimal.css` 的 class | 对照数据模板速查中的 31 个 CSS class 清单逐一检查 |
 | 16 | 知识点数量 <10 或 >100 导致内容过少/加载慢 | 默认 20-30 个，简单主题 10-15 个，大主题上限 50 个 |
 | 17 | Windows Git Bash 中文主机名导致 Vercel CLI 报错 | 不直接用 `vercel login`，改用 `export VERCEL_TOKEN` 环境变量 |
-| 18 | 只验证 HTTP 200，不检查页面内容是否是当前主题 | 增加 stale-topic 检查：旧主题关键词不得出现在 HTML/manifest 中（不含 siteConfig，见#20） |
-| 21 | sed 替换 HTML 主题词后不验证 SEO description 语义正确性 | sed 只能替换关键词，无法保证描述内容与新主题一致（如"任务收集、优先级判断"出现在谈判心理学站点）。必须逐字读 `meta name="description"` 内容，确认与 siteConfig.footer.description 一致 |
-| 19 | 用 bash heredoc (`cat > file << 'EOF'`) 写含中文的 JS 数据 | heredoc 中文 JS 会损坏：丢失冒号(`explanation":"`→`explanation":"`)、替换直引号为弯引号。用 `write_file` 工具或 Python `open().write()` 替代 |
-| 20 | stale-topic 检查范围包含 siteConfig.js | siteConfig 里天然包含主题词（如描述文案），只检查 `*.html` 和 `manifest.json` |
+| 18 | 只验证 HTTP 200，不检查页面内容是否是当前主题 | 增加 stale-topic 检查：旧主题关键词不得出现在 HTML/manifest 中 |
+| 19 | 用 bash heredoc 写含中文的 JS 数据 | heredoc 中文 JS 会损坏编码。用 `write_file` 工具或 Python `open().write()` 替代 |
+| 20 | stale-topic 检查范围包含 siteConfig.js | siteConfig 里天然包含主题词，只检查 `*.html` 和 `manifest.json` |
+| 21 | 不用 gen-html.py 生成 HTML，手动 sed 替换 | 运行 `python "$SKILL_DIR/scripts/gen-html.py" .` 从 siteConfig 动态生成，从源头消除语义残留 |
+| 22 | gen-html.py 生成后不验证 SEO description | Step 5 阶段 4 强制检查 description 与 siteConfig 一致 |
 
 ---
 
