@@ -8,3 +8,4 @@ timestamp	skill	round	dim1_fm	dim2_flow	dim3_fail	dim4_ckpt	dim5_concrete	dim6_r
 2026-06-29T20:41:33+08:00	knowledge-site-creator	R6	8	9	9	9	10	10	9	9	9	91.0	+0.8	dim2: checklist+batch update gen-html.py integration
 2026-06-29T20:43:53+08:00	knowledge-site-creator	R7	8	10	9	9	10	10	9	9	9	91.5	+0.5	dim6: plugin.json synced + orphan references linked
 2026-06-29T20:47:16+08:00	knowledge-site-creator	R8	8	10	9	9	10	10	10	9	9	92.0	+0.5	dim7: incident report moved to reference, -71 lines
+2026-06-29T20:56:17+08:00	knowledge-site-creator	R9	8	10	9	9	10	10	10	9	9	92.5	+0.5	dim7: version 2.0.0 + batch update to reference, -148 lines
