@@ -244,7 +244,7 @@ const siteConfig = {
 
 ⚠️ **使用 Python 生成器，不要手动 sed 替换或复制旧 HTML**
 
-**主方案（推荐）**：运行 `scripts/gen-html.py` 从 siteConfig.js 动态生成所有 HTML。每个页面的 meta description、OG title、页面标题全部来自配置数据，从源头消除语义残留。
+**主方案（推荐）**：运行 `scripts/gen-html.py` 从 siteConfig.js 动态生成所有 HTML。每个页面的 meta description、OG title、页面标题全部来自配置数据，从源头消除语义残留。设计原理见 `references/html-generator-pattern.md`，语义验证方法见 `references/seo-semantic-verification.md`。
 
 ```bash
 # 生成 6 个 HTML + manifest.json（依赖：js/siteConfig.js 已存在）
