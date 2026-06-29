@@ -1077,10 +1077,10 @@ AI 执行此 skill 时，**必须严格按顺序**完成：
 
 - [ ] 1. **理解主题** - 分析领域特点、价值、受众、表达方式
 - [ ] 2. **生成数据** - 创建 wordData.js（const WordRoots）
-- [ ] 3. **生成配置** 🆕 - 创建 siteConfig.js（AI创作首页文案）
-- [ ] 4. **生成页面** 🆕 - 参考设计系统，从零生成HTML（不复制模板）
+- [ ] 3. **生成配置** - 创建 siteConfig.js（AI创作首页文案）
+- [ ] 4. **生成页面** - 运行 `python "$SKILL_DIR/scripts/gen-html.py" .` 从 siteConfig 动态生成 6 个 HTML + manifest.json
 - [ ] 5. **创建项目** - mkdir + 写入所有文件
-- [ ] 6. **验证数据** - 检查数据和配置文件完整性
+- [ ] 6. **验证数据** - 检查数据和配置文件完整性（含 Step 5 阶段 4 gen-html.py 输出验证）
 - [ ] 7. **安全部署** 🔒 - 执行 Step 6 的完整部署流程（含前置检查 + 部署 + 后置验证）
 - [ ] 8. **返回信息** - 项目路径 + URL + 核心特性 + 安全检查结果
 
@@ -1300,10 +1300,24 @@ git remote remove origin
 - 设计改进：优化了卡片阴影、间距、配色
 - 功能增强：添加了新的交互动效
 - 安全更新：修复了 XSS 漏洞或其他安全问题
+- HTML 模板更新：修改 gen-html.py 后需要重新生成所有站点的 HTML
 
 ### 更新脚本
 
-**脚本位置**：`scripts/update-css.sh`
+**CSS 更新**：`scripts/update-css.sh` — 批量更新所有已部署站点的 CSS 文件
+
+**HTML 重新生成**：`scripts/gen-html.py` — 当 gen-html.py 本身有更新时，对每个已部署项目重新运行：
+
+```bash
+# 对每个已部署项目重新生成 HTML
+for dir in $BASE_DIR/*-workshop; do
+  if [ -f "$dir/js/siteConfig.js" ]; then
+    echo "Regenerating: $(basename $dir)"
+    python "$SKILL_DIR/scripts/gen-html.py" "$dir"
+    cd "$dir"; vercel --prod --yes
+  fi
+done
+```
 
 **使用方法**：
 
